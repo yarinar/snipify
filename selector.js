@@ -1,7 +1,9 @@
-// selector.js (v2.1)
-import { startLogin } from './auth.js';
+// selector.js (v3.1)
+import { startLogin, refreshAccessToken, VERSION } from './auth.js';
 
 const grid = document.getElementById('grid'); // matches <div id="grid"> in selector.html
+const versionEl = document.getElementById('version');
+if (versionEl) versionEl.textContent = 'v' + VERSION;
 
 let access = localStorage.getItem('access_token');
 if (!access) {
@@ -33,27 +35,54 @@ async function init() {
   }
 }
 
-function api(path, opts = {}) {
-  return fetch(`https://api.spotify.com/v1/${path}`, {
+async function api(path, opts = {}, allowRetry = true) {
+  const r = await fetch(`https://api.spotify.com/v1/${path}`, {
     ...opts,
     headers: { Authorization: `Bearer ${access}`, ...opts.headers }
-  }).then(async r => {
-    if (!r.ok) throw new Error(await r.text());
-    if (r.status === 204) return {};
-    return r.json();
   });
+
+  // Token expired: refresh once and retry transparently.
+  if (r.status === 401 && allowRetry) {
+    const newToken = await refreshAccessToken();
+    if (newToken) { access = newToken; return api(path, opts, false); }
+    return startLogin();
+  }
+
+  if (!r.ok) throw new Error(await r.text());
+  if (r.status === 204) return {};
+  return r.json();
 }
 
 function renderGrid(playlists) {
   grid.innerHTML = '';
-  playlists.forEach(p => {
+  const list = playlists.filter(Boolean);
+
+  if (!list.length) {
+    grid.innerHTML = '<div class="state">No playlists found on your account.</div>';
+    return;
+  }
+
+  list.forEach((p, i) => {
     const card = document.createElement('div');
     card.className = 'playlist';
-    card.innerHTML = `
-      <img src="${p.images?.[0]?.url || ''}" alt="${p.name}">
-      <div class="playlist-name">${p.name}</div>`;
+    card.style.animationDelay = Math.min(i * 0.03, 0.5) + 's';
+
+    // Build with textContent (not innerHTML) so playlist names can't inject markup.
+    const img = document.createElement('img');
+    img.src = p.images?.[0]?.url || '';
+    img.alt = p.name || '';
+    img.loading = 'lazy';
+
+    const name = document.createElement('div');
+    name.className = 'playlist-name';
+    name.textContent = p.name || 'Untitled';
+
+    card.append(img, name);
     card.onclick = () => {
       localStorage.setItem('selected_playlist', p.id);
+      // Drop any cached tracks from a previous playlist so the new one loads fresh.
+      localStorage.removeItem('cached_playlist_id');
+      localStorage.removeItem('cached_tracks');
       window.location.href = 'index.html';
     };
     grid.appendChild(card);
@@ -61,38 +90,28 @@ function renderGrid(playlists) {
 }
 
 function setupShuffleToggle() {
-  // Create the shuffle toggle container
-  const shuffleContainer = document.createElement('div');
-  shuffleContainer.className = 'shuffle-container';
-  shuffleContainer.style.cssText = 'text-align: center; margin: 1rem 0; color: #ddd;';
-  
-  // Create the label and checkbox
   const label = document.createElement('label');
-  label.style.cssText = 'cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;';
-  
+  label.className = 'switch';
+
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
   checkbox.id = 'shuffleToggle';
-  
-  // Set the initial state from localStorage
+
+  // Default ON when the user hasn't chosen yet; persist it so the game agrees.
   const savedShuffle = localStorage.getItem('shuffle');
   checkbox.checked = savedShuffle === null ? true : savedShuffle === '1';
-  
-  // Add event listener to save preference
+  if (savedShuffle === null) localStorage.setItem('shuffle', '1');
+
   checkbox.addEventListener('change', () => {
-    const shuffle = checkbox.checked;
-    localStorage.setItem('shuffle', shuffle ? '1' : '0');
+    localStorage.setItem('shuffle', checkbox.checked ? '1' : '0');
   });
-  
-  // Add text to the label
-  const text = document.createTextNode('Shuffle songs');
-  
-  // Assemble the elements
-  label.appendChild(checkbox);
-  label.appendChild(text);
-  shuffleContainer.appendChild(label);
-  
-  // Add to the page before the grid
-  const logo = document.getElementById('logo');
-  logo.parentNode.insertBefore(shuffleContainer, logo.nextSibling);
+
+  // Order matters: the CSS track is the input's next sibling.
+  const track = document.createElement('span');
+  track.className = 'switch__track';
+  const text = document.createElement('span');
+  text.textContent = 'Shuffle songs';
+
+  label.append(checkbox, track, text);
+  (document.getElementById('toolbar') || document.body).appendChild(label);
 }

@@ -3,216 +3,276 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#07070a">
   <title>Snipify</title>
   <script src="https://sdk.scdn.co/spotify-player.js"></script>
   <script type="module" src="auth.js"></script>
   <script type="module" src="quiz.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
   <style>
-    body {
-      background-color: #000;
-      color: #fff;
-      font-family: 'Segoe UI', sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
+    :root{
+      --bg:#07070a;
+      --bg-2:#0c0c12;
+      --surface:rgba(255,255,255,.05);
+      --surface-2:rgba(255,255,255,.09);
+      --border:rgba(255,255,255,.10);
+      --text:#f3f4f1;
+      --muted:#8b8c96;
+      --green:#1ed760;
+      --green-deep:#119a45;
+      --lime:#c6ff4d;
+      --glow:rgba(30,215,96,.5);
+      --radius:18px;
+      --ease:cubic-bezier(.2,.7,.2,1);
+      font-family:'Bricolage Grotesque',system-ui,sans-serif;
     }
 
-    #back {
-      position: absolute;
-      top: 1rem;
-      left: 1rem;
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      color:var(--text);
+      background:var(--bg);
+      min-height:100dvh;
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      -webkit-tap-highlight-color:transparent;
+      /* Atmosphere: a green halo bleeding from the top, deep fade to black */
+      background:
+        radial-gradient(120% 80% at 50% -10%, rgba(30,215,96,.16), transparent 55%),
+        radial-gradient(90% 60% at 50% 115%, rgba(30,215,96,.08), transparent 60%),
+        linear-gradient(180deg,var(--bg-2),var(--bg) 60%);
     }
 
-    #logo {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #1db954;
-      margin-bottom: 1rem;
+    /* Film-grain overlay for texture */
+    body::after{
+      content:"";
+      position:fixed;inset:0;
+      pointer-events:none;
+      z-index:50;
+      opacity:.045;
+      background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
     }
 
-    #albumArt {
-      width: 200px;
-      height: 200px;
-      border-radius: 12px;
-      object-fit: cover;
-      margin:0 auto 0.5rem;
+    /* ── Top bar ── */
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:max(.9rem,env(safe-area-inset-top)) 1.1rem .4rem;
+      gap:.6rem;
+      animation:drop .6s var(--ease) both;
+    }
+    .wordmark{
+      font-weight:800;letter-spacing:-.03em;font-size:1.15rem;
+      background:linear-gradient(180deg,#fff,#bdbdc4);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
+    }
+    .icon-btn{
+      width:42px;height:42px;border-radius:50%;
+      border:1px solid var(--border);background:var(--surface);
+      color:var(--text);font-size:1.2rem;line-height:1;
+      display:grid;place-items:center;cursor:pointer;
+      transition:transform .18s var(--ease),background .2s,border-color .2s;
+    }
+    .icon-btn:hover{background:var(--surface-2);transform:translateX(-2px)}
+    .icon-btn:active{transform:scale(.92)}
+    .round{
+      min-width:42px;height:42px;padding:0 .55rem;border-radius:21px;
+      border:1px solid var(--border);background:var(--surface);
+      display:grid;place-items:center;
+      font-family:'DM Mono',monospace;font-size:.95rem;color:var(--muted);
+    }
+    .round::before{content:"#";opacity:.5;margin-right:1px}
+
+    /* ── Stage ── */
+    .stage{
+      flex:1;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;gap:1.4rem;padding:.5rem 1.1rem;min-height:0;
     }
 
-    #trackName {
-      font-size: 1.2rem;
-      font-weight: 600;
-      text-align: center;
+    /* ── Vinyl disc ── */
+    .disc{
+      position:relative;
+      width:min(64vw,272px);aspect-ratio:1;border-radius:50%;
+      display:grid;place-items:center;
+      box-shadow:0 0 0 1px rgba(255,255,255,.06),0 30px 70px -20px rgba(0,0,0,.8),0 0 80px -20px var(--glow);
+      animation:rise .7s .05s var(--ease) both;
+    }
+    .disc__rings{
+      position:absolute;inset:0;border-radius:50%;
+      background:
+        repeating-radial-gradient(circle at 50% 50%,#16161b 0 2px,#0d0d11 2px 4px),
+        radial-gradient(circle at 38% 34%,rgba(255,255,255,.08),transparent 45%);
+      box-shadow:inset 0 0 60px rgba(0,0,0,.7);
+      animation:spin 14s linear infinite;
+    }
+    .disc.revealed .disc__rings{animation-duration:5s}
+    .disc__label{
+      position:relative;z-index:2;
+      font-weight:800;font-size:3.4rem;color:var(--muted);
+      text-shadow:0 2px 14px rgba(0,0,0,.6);
+      transition:opacity .25s,transform .25s;
+    }
+    .disc.revealed .disc__label{opacity:0;transform:scale(.6)}
+    /* Revealed album art sits as the record's center label */
+    #albumArt{
+      position:absolute;z-index:3;
+      width:72%;height:72%;border-radius:50%;object-fit:cover;
+      box-shadow:0 0 0 4px #0a0a0d,0 0 0 5px rgba(255,255,255,.08),0 10px 30px rgba(0,0,0,.6);
+      animation:reveal-pop .5s var(--ease) both;
+    }
+    #albumArt[hidden]{display:none}
+    /* center spindle hole */
+    .disc::after{
+      content:"";position:absolute;z-index:4;width:13px;height:13px;border-radius:50%;
+      background:#050507;box-shadow:inset 0 0 0 2px rgba(255,255,255,.12);
+      opacity:0;transition:opacity .2s;
     }
 
-    #trackArtist {
-      font-size: 1rem;
-      color: #ccc;
-      text-align: center;
-      margin-bottom: 1rem;
+    /* ── Equalizer (replaces waveform.gif) ── */
+    .eq{
+      position:absolute;z-index:5;bottom:18%;
+      display:flex;align-items:flex-end;gap:4px;height:30px;
+      padding:7px 10px;border-radius:11px;
+      background:rgba(7,7,10,.66);backdrop-filter:blur(6px);
+      box-shadow:0 0 22px -4px var(--glow),inset 0 0 0 1px rgba(255,255,255,.08);
+      opacity:0;transition:opacity .25s var(--ease);
+    }
+    .eq span{
+      width:4px;height:7px;border-radius:3px;
+      background:linear-gradient(180deg,var(--lime),var(--green));
+      animation:eq .85s ease-in-out infinite alternate;
+    }
+    .eq span:nth-child(1){animation-delay:-.5s}
+    .eq span:nth-child(2){animation-delay:-.2s}
+    .eq span:nth-child(3){animation-delay:-.8s}
+    .eq span:nth-child(4){animation-delay:-.35s}
+    .eq span:nth-child(5){animation-delay:-.65s}
+
+    /* ── Track meta ── */
+    .meta{text-align:center;min-height:3.2rem;display:flex;flex-direction:column;gap:.15rem;justify-content:center}
+    .track-name{font-weight:700;font-size:1.4rem;letter-spacing:-.02em;line-height:1.15}
+    .track-artist{font-size:1rem;color:var(--muted)}
+    .meta:empty,.track-name:empty,.track-artist:empty{min-height:0}
+
+    /* ── Hint pills ── */
+    .hints{display:flex;gap:.5rem;width:100%;max-width:440px;animation:drop .6s .15s var(--ease) both}
+    .hint{
+      flex:1 1 0;min-width:0;
+      display:flex;flex-direction:column;align-items:center;gap:2px;
+      padding:.7rem .2rem;border-radius:14px;cursor:pointer;
+      border:1px solid var(--border);background:var(--surface);color:var(--text);
+      transition:transform .15s var(--ease),background .2s,border-color .2s,box-shadow .2s;
+    }
+    .hint__n{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+    .hint__t{font-family:'DM Mono',monospace;font-size:1.02rem;font-weight:500}
+    .hint:hover{background:var(--surface-2);border-color:rgba(255,255,255,.2)}
+    .hint:active{transform:scale(.94)}
+    .hint.used{
+      background:linear-gradient(180deg,rgba(30,215,96,.22),rgba(30,215,96,.10));
+      border-color:rgba(30,215,96,.55);
+      box-shadow:0 0 22px -8px var(--glow);
+    }
+    .hint.used .hint__n{color:var(--green)}
+
+    /* ── Buttons ── */
+    .actions{display:flex;gap:.6rem;width:100%;max-width:440px;animation:drop .6s .22s var(--ease) both}
+    .btn{
+      font-family:inherit;font-weight:600;font-size:1rem;
+      padding:.85rem 1rem;border-radius:14px;cursor:pointer;border:1px solid transparent;
+      transition:transform .15s var(--ease),background .2s,box-shadow .2s,border-color .2s;
+    }
+    .btn:active{transform:scale(.96)}
+    .btn--ghost{flex:1;background:var(--surface);border-color:var(--border);color:var(--text)}
+    .btn--ghost:hover{background:var(--surface-2)}
+    #full.is-playing{
+      background:linear-gradient(180deg,rgba(30,215,96,.22),rgba(30,215,96,.10));
+      border-color:rgba(30,215,96,.5);color:#eafff0;
+    }
+    .btn--primary{
+      width:100%;
+      background:linear-gradient(180deg,var(--green),var(--green-deep));
+      color:#062612;font-weight:700;font-size:1.08rem;letter-spacing:-.01em;
+      box-shadow:0 10px 26px -10px var(--glow),inset 0 1px 0 rgba(255,255,255,.25);
+    }
+    .btn--primary:hover{filter:brightness(1.06)}
+
+    /* ── Bottom bar ── */
+    .bottombar{
+      padding:.4rem 1.1rem calc(.8rem + env(safe-area-inset-bottom));
+      display:flex;flex-direction:column;align-items:center;gap:.5rem;
+      animation:drop .6s .28s var(--ease) both;
+    }
+    .nextRow{width:100%;max-width:440px}
+    .credits{font-size:.7rem;color:#5a5b64;font-family:'DM Mono',monospace}
+
+    /* ── Keyframes ── */
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes eq{from{height:7px}to{height:26px}}
+    @keyframes drop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+    @keyframes rise{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+    @keyframes reveal-pop{from{opacity:0;transform:scale(.4) rotate(-12deg)}to{opacity:1;transform:none}}
+
+    @media (prefers-reduced-motion:reduce){
+      *{animation-duration:.001s!important;animation-iteration-count:1!important}
+      .disc__rings{animation:none}
     }
 
-    #waveform {
-      width: 60px;
-      height: 40px;
-      margin: 1rem auto;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    #waveform::before {
-      content: "";
-      display: block;
-      width: 100%;
-      height: 100%;
-      background: url('waveform.gif') center/contain no-repeat;
-    }
-
-    #controls {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-top: 1em;
-    }
-
-    #creator {
-      font-size: 0.7rem;
-      color: #666;
-      margin-top: 0.2rem;
-    }
-
-    .button-group {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin: 0.5em 0;
-    }
-
-    button, select {
-      font-size: 1rem;
-      padding: 0.5em 1em;
-      margin: 0.4em;
-      border: none;
-      border-radius: 6px;
-      background-color: #1db954;
-      color: #fff;
-      cursor: pointer;
-      transition: transform 0.2s, background-color 0.2s;
-    }
-
-    button:hover {
-      background-color: #1ed760;
-      transform: scale(1.05);
-    }
-
-    .used {
-      background-color: #555;
-    }
-
-    #version {
-      font-size: 0.7rem;
-      color: #777;
-      margin-top: 1rem;
-    }
-
-    @media (max-width: 600px) {
-      #logo {
-        font-size: 2.8rem;
-        margin-top: 3.5rem;
-      }
-      #albumArt {
-        width: 60vw;
-        height: 60vw;
-        max-width: 320px;
-        max-height: 320px;
-      }
-      #trackName {
-        font-size: 1.3rem;
-      }
-      #trackArtist {
-        font-size: 1.1rem;
-      }
-      #controls {
-        max-width: 98vw;
-      }
-      button, select {
-        font-size: 1.1rem;
-        padding: 0.7em 0.2em;
-        min-width: 0;
-      }
-      .button-group {
-        gap: 0.7em;
-      }
-      #snippets.button-group {
-        display: flex;
-        flex-wrap: nowrap;
-        width: 100vw;
-        max-width: 100vw;
-        padding-bottom: 0.5em;
-        overflow-x: unset;
-        padding-left: 0.5em;
-        padding-right: 0.5em;
-      }
-      #snippets.button-group button {
-        flex: 1 1 0;
-        min-width: 0;
-        padding: 0.7em 0.2em;
-        font-size: 1.1rem;
-      }
-      #snippets.button-group button:first-child {
-        margin-left: 0.2em;
-      }
-      #snippets.button-group button:last-child {
-        margin-right: 0.2em;
-      }
-      #waveform {
-        width: 80px;
-        height: 54px;
-      }
-      #back {
-        font-size: 1.4rem;
-        padding: 1em 1.5em;
-      }
-      body {
-        padding-top: 0.5em;
-      }
+    /* ── Larger screens ── */
+    @media (min-width:680px){
+      .disc{width:300px}
+      .track-name{font-size:1.6rem}
+      .stage{gap:1.8rem}
+      .hint{padding:.85rem .3rem}
     }
   </style>
 </head>
 <body>
-  <button id="back" onclick="location.href='selector.html'">⟵ Back</button>
-  <div id="logo">Snipify</div>
-  <div id="game">
+  <header class="topbar">
+    <button id="back" class="icon-btn" aria-label="Back to playlists">←</button>
+    <div class="wordmark">Snipify</div>
+    <div class="round" id="roundCounter" aria-label="Round">0</div>
+  </header>
 
-    <div id="controls">
-      <div class="button-group" id="snippets">
-        <button data-sec="0.3">Hint 1</button>
-        <button data-sec="0.6">Hint 2</button>
-        <button data-sec="1">Hint 3</button>
-        <button data-sec="2">Hint 4</button>
-        <button data-sec="4">Hint 5</button>
-      </div>
-
-      <div class="button-group" id="actions">
-        <button id="reveal">Reveal 🎵</button>
-        <button id="full">Play full</button>
-      </div>
-	  
-	  <img id="albumArt" src="" alt="Album Cover" />
-	  <div id="trackName"></div>
-	  <div id="trackArtist"></div>
-	  <div id="waveform"></div>
-
-      <div class="button-group" id="next">
-        <button id="next">Next song ➜</button>
+  <main class="stage" id="game">
+    <div class="disc" id="disc">
+      <div class="disc__rings"></div>
+      <div class="disc__label" aria-hidden="true">?</div>
+      <img id="albumArt" alt="Album cover" hidden />
+      <div id="waveform" class="eq" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span>
       </div>
     </div>
-  </div>
 
-  <div id="version">v3.0.6</div>
-  <div id="creator">Created by Yarin Arbiv</div>
+    <div class="meta">
+      <div id="trackName" class="track-name"></div>
+      <div id="trackArtist" class="track-artist"></div>
+    </div>
+
+    <div class="hints" id="snippets">
+      <button class="hint" data-sec="0.3"><span class="hint__n">Hint 1</span><span class="hint__t">0.3s</span></button>
+      <button class="hint" data-sec="0.6"><span class="hint__n">Hint 2</span><span class="hint__t">0.6s</span></button>
+      <button class="hint" data-sec="1"><span class="hint__n">Hint 3</span><span class="hint__t">1s</span></button>
+      <button class="hint" data-sec="2"><span class="hint__n">Hint 4</span><span class="hint__t">2s</span></button>
+      <button class="hint" data-sec="4"><span class="hint__n">Hint 5</span><span class="hint__t">4s</span></button>
+    </div>
+
+    <div class="actions" id="actions">
+      <button id="reveal" class="btn btn--ghost">Reveal 🎵</button>
+      <button id="full" class="btn btn--ghost">Play full</button>
+    </div>
+  </main>
+
+  <footer class="bottombar">
+    <div class="nextRow" id="nextRow">
+      <button id="next" class="btn btn--primary">Next song →</button>
+    </div>
+    <div class="credits"><span id="version">v3.1.0</span> · by Yarin Arbiv</div>
+  </footer>
 </body>
 </html>

@@ -3,105 +3,118 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Snipify - Select Playlist</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#07070a">
+  <title>Snipify — Pick a playlist</title>
   <script type="module" src="selector.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
   <style>
-    body {
-      background-color: #000;
-      color: #fff;
-      font-family: 'Segoe UI', sans-serif;
-      margin: 0;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-      box-sizing: border-box;
+    :root{
+      --bg:#07070a;
+      --bg-2:#0c0c12;
+      --surface:rgba(255,255,255,.045);
+      --surface-2:rgba(255,255,255,.08);
+      --border:rgba(255,255,255,.10);
+      --text:#f3f4f1;
+      --muted:#8b8c96;
+      --green:#1ed760;
+      --glow:rgba(30,215,96,.5);
+      --ease:cubic-bezier(.2,.7,.2,1);
+      font-family:'Bricolage Grotesque',system-ui,sans-serif;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;color:var(--text);min-height:100dvh;
+      display:flex;flex-direction:column;
+      padding:max(1rem,env(safe-area-inset-top)) 1rem calc(1rem + env(safe-area-inset-bottom));
+      -webkit-tap-highlight-color:transparent;
+      background:
+        radial-gradient(120% 70% at 50% -10%, rgba(30,215,96,.15), transparent 55%),
+        linear-gradient(180deg,var(--bg-2),var(--bg) 55%);
+    }
+    body::after{
+      content:"";position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.045;
+      background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
     }
 
-    #logo {
-      font-size: 2rem;
-      font-weight: bold;
-      color: #1db954;
-      text-align: center;
-      margin-bottom: 1rem;
+    .head{text-align:center;margin-bottom:.4rem;animation:drop .5s var(--ease) both}
+    #logo{
+      font-weight:800;letter-spacing:-.035em;font-size:2.1rem;
+      background:linear-gradient(180deg,#fff,#9fffbf 140%);
+      -webkit-background-clip:text;background-clip:text;color:transparent;
     }
+    .sub{color:var(--muted);font-size:.92rem;margin-top:.1rem}
 
-    #grid {
-      flex: 1;
-      overflow-y: auto;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-      gap: 1rem;
-      padding: 0 0.5rem;
+    #toolbar{display:flex;justify-content:center;margin:.7rem 0 1rem;animation:drop .5s .06s var(--ease) both}
+
+    /* Shuffle pill switch (markup built in selector.js) */
+    .switch{display:inline-flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;
+      padding:.5rem .8rem;border:1px solid var(--border);border-radius:999px;background:var(--surface);
+      font-size:.92rem;transition:background .2s,border-color .2s}
+    .switch:hover{background:var(--surface-2)}
+    .switch input{position:absolute;opacity:0;width:0;height:0}
+    .switch__track{position:relative;width:40px;height:23px;border-radius:999px;background:rgba(255,255,255,.14);
+      transition:background .22s var(--ease)}
+    .switch__track::after{content:"";position:absolute;top:3px;left:3px;width:17px;height:17px;border-radius:50%;
+      background:#fff;transition:transform .22s var(--ease)}
+    .switch input:checked + .switch__track{background:var(--green);box-shadow:0 0 16px -4px var(--glow)}
+    .switch input:checked + .switch__track::after{transform:translateX(17px)}
+
+    #grid{
+      flex:1;overflow-y:auto;display:grid;gap:.9rem;padding:.2rem .1rem 1rem;
+      grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+      align-content:start;   /* rows take natural height instead of stretching */
+      -webkit-overflow-scrolling:touch;
     }
-
-    .playlist {
-      background-color: #111;
-      padding: 0.5rem;
-      border-radius: 8px;
-      text-align: center;
-      cursor: pointer;
-      transition: transform 0.2s;
+    .playlist{
+      position:relative;background:var(--surface);border:1px solid var(--border);
+      padding:.6rem;border-radius:16px;cursor:pointer;text-align:left;
+      transition:transform .18s var(--ease),background .2s,border-color .2s,box-shadow .2s;
+      animation:rise .45s var(--ease) both;
     }
+    .playlist:hover{transform:translateY(-4px);background:var(--surface-2);
+      border-color:rgba(30,215,96,.45);box-shadow:0 18px 36px -22px #000,0 0 26px -12px var(--glow)}
+    .playlist:active{transform:translateY(-1px) scale(.99)}
+    .playlist img{width:100%;aspect-ratio:1;border-radius:11px;object-fit:cover;background:#15151b;display:block}
+    .playlist-name{margin-top:.55rem;font-size:.95rem;font-weight:600;line-height:1.2;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    /* little play badge on hover */
+    .playlist::after{content:"▶";position:absolute;top:1rem;right:1rem;width:34px;height:34px;border-radius:50%;
+      display:grid;place-items:center;font-size:.8rem;color:#062612;
+      background:var(--green);box-shadow:0 6px 16px -4px var(--glow);
+      opacity:0;transform:scale(.6) translateY(6px);transition:opacity .2s,transform .2s var(--ease)}
+    .playlist:hover::after{opacity:1;transform:none}
 
-    .playlist:hover {
-      transform: scale(1.05);
-    }
+    .state{flex:1;display:grid;place-items:center;color:var(--muted);font-size:.95rem;text-align:center;padding:2rem}
+    .spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.12);
+      border-top-color:var(--green);animation:spin .8s linear infinite;margin:0 auto .8rem}
 
-    .playlist img {
-      width: 100%;
-      aspect-ratio: 1;
-      border-radius: 6px;
-      object-fit: cover;
-    }
+    #version{text-align:center;font-size:.7rem;color:#5a5b64;font-family:'DM Mono',monospace;padding-top:.4rem}
 
-    .playlist-name {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
-      color: #ddd;
-      word-break: break-word;
-    }
-
-    #version {
-      font-size: 0.7rem;
-      color: #777;
-      text-align: center;
-      margin-top: 1rem;
-    }
-
-    @media (max-width: 600px) {
-      #logo {
-        font-size: 2.8rem;
-      }
-      #grid {
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-        padding: 0 0.2rem;
-      }
-      .playlist {
-        padding: 1.2rem;
-        min-width: 0;
-        min-height: 120px;
-        width: 100%;
-        box-sizing: border-box;
-      }
-      .playlist img {
-        max-width: 96vw;
-        max-height: 96vw;
-        display: block;
-        margin: 0 auto;
-      }
-      .playlist-name {
-        font-size: 1.1rem;
-      }
+    @keyframes drop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+    @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+    @media (max-width:600px){
+      #grid{grid-template-columns:repeat(2,1fr);gap:.7rem}
+      #logo{font-size:2.4rem}
     }
   </style>
 </head>
 <body>
-  <div id="logo">Snipify</div>
-  <div id="grid"></div>
-  <div id="version">v3.0.6</div>
+  <div class="head">
+    <div id="logo">Snipify</div>
+    <div class="sub">Pick a playlist to play</div>
+  </div>
+  <div id="toolbar"></div>
+  <div id="grid">
+    <div class="state"><div><div class="spinner"></div>Loading your playlists…</div></div>
+  </div>
+  <div id="version">v3.1.0</div>
 </body>
 </html>
