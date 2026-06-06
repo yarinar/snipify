@@ -23,6 +23,7 @@ let tracks=[], playQueue=[], queueIdx=0;
 let current, revealed=false;
 let snippetWatch=null, snippetTimer=null;
 let trackLoaded=false;          // is `current` already loaded on the SDK device?
+let startedViaRest=false;       // did the current playback start over REST (first play)?
 let playerReady = false;
 let sdkReady = false, tracksLoaded = false;  // single-init gating
 // API throttling
@@ -262,10 +263,10 @@ async function toggleFull(){
   clearTimeout(snippetTimer);
   clearInterval(snippetWatch);
   if(fullBtn.textContent==='Stop'){
-    await player.pause();
     waveform.style.opacity=0;
     fullBtn.textContent='Play full';
     fullBtn.classList.remove('is-playing');
+    await stopPlayback();   // same robust stop as snippets (handles first-play REST case)
     return;
   }
   await startCurrent(0);   // start from the beginning
@@ -309,9 +310,41 @@ async function startCurrent(pos=0){
   if(!trackLoaded){
     await playTrack(current.uri, pos);
     trackLoaded = true;
+    startedViaRest = true;   // started over the Connect/REST channel
+    console.log('[snipify] start: fresh REST play of', current.name);
   }else{
     await player.seek(pos);
     await player.resume();
+    startedViaRest = false;  // started locally via the SDK
+    console.log('[snipify] start: SDK seek+resume of', current.name);
+  }
+}
+
+// Reliably stop playback. The catch: a snippet's FIRST play is started over the
+// REST/Connect channel right after a device transfer, and the SDK's pause() can
+// no-op on it until the SDK has taken over the device (causing the song to play
+// on forever). So we pause via the SDK for an instant cut, then confirm and fall
+// back to an authoritative REST pause when the SDK pause didn't actually stop it.
+async function stopPlayback(){
+  try{ await player.pause(); }
+  catch(e){ console.warn('[snipify] SDK pause threw:', e); }
+
+  if(startedViaRest){
+    // REST-started play: don't trust the SDK pause — force-stop via the same
+    // channel that started it.
+    await api('me/player/pause',{method:'PUT'})
+      .then(()=>console.log('[snipify] stop: REST pause sent (fresh REST play)'))
+      .catch(e=>console.warn('[snipify] REST pause failed:', e));
+    return;
+  }
+
+  // SDK-started play: verify the pause actually took; force REST pause if not.
+  const st = await player.getCurrentState().catch(()=>null);
+  if(!st || !st.paused){
+    console.log('[snipify] stop: SDK pause unconfirmed (st=', st?('paused:'+st.paused):'null', ') — REST pause fallback');
+    await api('me/player/pause',{method:'PUT'}).catch(e=>console.warn('[snipify] REST pause failed:', e));
+  }else{
+    console.log('[snipify] stop: SDK pause confirmed');
   }
 }
 
@@ -353,10 +386,12 @@ async function playSnippet(sec){
 
       waveform.style.opacity=1;
       // The track is buffered and confirmed playing, so a single timer cuts the
-      // snippet far more precisely than the old 250ms polling loop did.
+      // snippet. stopPlayback() guarantees it actually stops (see its comment).
+      const armedAt=Date.now();
       snippetTimer=setTimeout(async()=>{
-        await player.pause().catch(()=>{});
         waveform.style.opacity=0;
+        console.log(`[snipify] snippet ${sec}s deadline (elapsed ${Date.now()-armedAt}ms) — stopping`);
+        await stopPlayback();
       }, sec*1000);
       return;
 

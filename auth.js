@@ -1,4 +1,4 @@
-export const VERSION = '3.1.0';
+export const VERSION = '3.1.1';
 const CLIENT_ID = '05f8b9b243c94d1aa39bef811f03df42';
 // Derive the redirect URI from wherever the app is served, so the same code
 // works on production (yarinar.github.io/snipify/) and locally (127.0.0.1) as
